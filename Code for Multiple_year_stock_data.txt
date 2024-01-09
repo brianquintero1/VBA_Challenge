@@ -1,0 +1,118 @@
+Sub stock_mkt_analysis()
+
+'Declare variables
+Dim total_volume As Double       'total volume of stock traded
+Dim i As Long                    'to designate looping count
+Dim stock_difference As Single   'difference in stock prices from BOY to EOY
+Dim j As Integer                 'to track all rows placed in new table structure
+Dim open_price As Long           'opening prices of stocks
+Dim rowcount As Long             'total number of rows in the data based on count of values in column A
+Dim percentchange As Single      'calculate the percentage change in stock prices
+
+'Create table header (column) names for new table output in columns 9-12
+Cells(1, 9).Value = "Ticker"
+Cells(1, 10).Value = "Yearly Change"
+Cells(1, 11).Value = "Percent Change"
+Cells(1, 12).Value = "Total Stock Volume"
+Cells(2, 15).Value = "Greatest % Increase"
+Cells(3, 15).Value = "Greatest % Decrease"
+Cells(4, 15).Value = "Greatest Total Volume"
+Cells(1, 16).Value = "Ticker"
+Cells(1, 17).Value = "Value"
+
+'Create initial variables as placeholders of sorts for later use
+j = 0
+total_volume = 0
+stock_difference = 0
+open_price = 2          'stock price starts in row 2 so that we do not consider the headers as values
+
+'Find number of the last row with data in Column A to get dynamic count for any new sheet in which code is used
+rowcount = Cells(Rows.Count, "A").End(xlUp).Row
+
+'Begin looping through the entire data set to select the necessary information (skip first row with headers)
+For i = 2 To rowcount
+
+    'In Column A, find where the ticker symbol changes (becomes different)by comparing row + 1 to the current row value
+    'If the value has changed, perform these calculations (calculate all values for this specific ticker symbol)(rules out tickers that have changed)
+    If Cells(i + 1, 1).Value <> Cells(i, 1).Value Then
+    
+        'Add stock volume to the placeholder total of 0 to give the true volume
+        total_volume = total_volume + Cells(i, 7).Value
+        
+        'Create calculation in the event that the volume is zero (rule out all volumes of 0)
+        If total_volume = 0 Then
+            'If the total volume is zero, then it will autopopulate only the ticker symbol and zeroes for the remaining three columns
+            Range("I" & 2 + j).Value = Cells(i, 1).Value
+            Range("J" & 2 + j).Value = 0
+            Range("K" & 2 + j).Value = "%" & 0         'zero is formatted as a 0 percent
+            Range("L" & 2 + j).Value = 0
+        'If the volume is not in fact 0, then the code should go ahead and perform the calculations
+        Else
+        'If the first value does not equal zero then this block of code will not run (only meant to address nonzero values)
+            If Cells(open_price, 3) = 0 Then   'If there is a value of 0 in the opening price then keep going until you find a non-zero
+                For nonzero = open_price To i   'create loop to find first nonzero opening price
+                    If Cells(nonzero, 3).Value <> 0 Then
+                        open_price = nonzero        'set the opening price to the first nonzero opening price
+                        Exit For                    'end the loop now that there is a confirmed nonzero value
+                    End If
+                Next nonzero
+            End If
+            
+            'Calculate Yearly change (BOY to EOY) by subtracting the first nonzero opening price value from the final closing price for that ticker in column F
+            stock_difference = Cells(i, 6) - Cells(open_price, 3)
+        
+            'Calculate Percent Change by taking the Yearly Change calculated above and dividing it by the first nonzero stock price
+            percentchange = Round((stock_difference / Cells(open_price, 3)) * 100, 2)     'result is multiplied by 100 and limited to 2 decimal places to match requested output
+        
+            'First opening price for ticker symbol
+            open_price = i + 1
+            
+            'Print result for nonzero calculations
+            Range("I" & 2 + j).Value = Cells(i, 1).Value
+            Range("J" & 2 + j).Value = Round(stock_difference, 2)
+            Range("K" & 2 + j).Value = "%" & percentchange         'formatted as a 0 percent
+            Range("L" & 2 + j).Value = total_volume
+            
+        'Conditional Formatting - if greater than zero it will be green, if less than zero then red, if it's = zero then it will be white
+        Select Case stock_difference
+            Case Is > 0
+                Range("J" & 2 + j).Interior.ColorIndex = 4
+            Case Is < 0
+                Range("J" & 2 + j).Interior.ColorIndex = 3
+            Case Else
+                Range("J" & 2 + j).Interior.ColorIndex = 0
+        End Select
+    End If
+    
+    'Set variables for next ticker symbol but not including open_price = 2 because no longer considering the header row
+    j = j + 1                   'now considering an increase by one to exclude previously calculated values
+    total_volume = 0
+    stock_difference = 0
+    
+    Else
+        total_volume = total_volume + Cells(i, 7).Value
+    End If
+    
+'End Loop
+Next i
+
+'Calculate maximum value in column L to find the stock with the Greatest total volume
+Range("Q4") = WorksheetFunction.Max(Range("L2:L" & rowcount))
+
+
+'Calculate max and min stock values in Column K to find and input the stock with the Greatest percent Increase and Decrease into the appropriate cells
+Range("Q2") = "%" & WorksheetFunction.Max(Range("K2:K" & rowcount)) * 100
+Range("Q3") = "%" & WorksheetFunction.Min(Range("K2:K" & rowcount)) * 100
+
+'Match the ticker symbols from Column A to the numbers derived fromt the above calculations
+'Using WorksheetFunction.Match method to return the position of the ticker symbol (instead of VLOOKUP) - finding exact match
+maximum_volume = WorksheetFunction.Match(WorksheetFunction.Max(Range("L2:L" & rowcount)), Range("L2:L" & rowcount), 0)
+greatest_increase = WorksheetFunction.Match(WorksheetFunction.Max(Range("K2:K" & rowcount)), Range("K2:K" & rowcount), 0)
+greatest_decrease = WorksheetFunction.Match(WorksheetFunction.Min(Range("K2:K" & rowcount)), Range("K2:K" & rowcount), 0)
+
+'Input the stock ticker but exclude analyzing the header name
+Range("P2") = Cells(greatest_increase + 1, 9)
+Range("P3") = Cells(greatest_decrease + 1, 9)
+Range("P4") = Cells(maximum_volume + 1, 9)
+    
+End Sub
